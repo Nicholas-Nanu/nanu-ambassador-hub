@@ -5,13 +5,16 @@ const DARK = { bg:"#0D1B21",surface:"#1F2A30",surfaceLight:"#2A3840",teal:"#1FC2
 const LIGHT = { bg:"#F4F6F8",surface:"#FFFFFF",surfaceLight:"#E2E8ED",teal:"#1AA3A3",lightTeal:"#17918F",text:"#1A2B33",textMuted:"#5F7580",danger:"#E04848",warning:"#D4A017",success:"#4DA65B",modalBg:"rgba(0,0,0,0.4)",inputBg:"#FFFFFF" };
 const STATUS = { trial:{label:"30-Day Trial",color:"#FFD93D",icon:"⏳"},active:{label:"Active",color:"#6BCB77",icon:"✦"},paused:{label:"Paused",color:"#8A9BA5",icon:"⏸"},alumni:{label:"Alumni",color:"#1FC2C2",icon:"★"} };
 
-const KEYS = { ambassadors:"nanu-amb-v2",prompts:"nanu-amb-prompts",resources:"nanu-amb-resources",feedback:"nanu-amb-feedback",settings:"nanu-amb-settings",recruits:"nanu-amb-recruits",activity:"nanu-amb-activity",applications:"nanu-amb-applications",events:"nanu-amb-events",socials:"nanu-amb-socials" };
+const KEYS = { ambassadors:"nanu-amb-v2",prompts:"nanu-amb-prompts",resources:"nanu-amb-resources",feedback:"nanu-amb-feedback",settings:"nanu-amb-settings",recruits:"nanu-amb-recruits",activity:"nanu-amb-activity",applications:"nanu-amb-applications",events:"nanu-amb-events",socials:"nanu-amb-socials",outreach:"nanu-amb-outreach" };
 const DEFAULT_SETTINGS = { pin:"nanu2026",adminUsername:"admin",masterCode:"NANU-MASTER-2026",welcomeMessage:"",theme:"dark" };
 
 const ThemeCtx = createContext(DARK);
 const useTheme = () => useContext(ThemeCtx);
 const mono = "'Space Mono', monospace";
 const sans = "'Syne', sans-serif";
+const PLATFORMS = ["Discord","Reddit","X / Twitter","Facebook","YouTube","TikTok","Instagram","LinkedIn","Telegram","Forums","Other"];
+const OUTREACH_STATUS = {not_started:{label:"Not Started",color:"#8A9BA5"},in_talks:{label:"In Talks",color:"#FFD93D"},approved:{label:"Approved",color:"#6BCB77"},denied:{label:"Denied",color:"#FF6B6B"}};
+const FOCUS_OPTS = [{value:"both",label:"Both (Internal + External)"},{value:"internal",label:"Internal Focus"},{value:"external",label:"External Focus"}];
 
 // ─── Helpers ───
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -320,7 +323,7 @@ const ApplicationPage = ({onSubmit, onBack}) => {
 // ────────────────────────────────────────────────────────
 // AMBASSADOR PORTAL (with self-service)
 // ────────────────────────────────────────────────────────
-const AmbassadorPortal=({ambassador,prompts,resources,events,socials,allRecruits,allActivity,allFeedback,onUpdateProfile,onAddRecruit,onAddActivity,onSubmitFeedback,onLogout})=>{
+const AmbassadorPortal=({ambassador,prompts,resources,events,socials,outreach,allRecruits,allActivity,allFeedback,onUpdateProfile,onAddRecruit,onAddActivity,onSubmitFeedback,onAddOutreachLog,onLogout})=>{
   const T=useTheme();
   const[tab,setTab]=useState("dashboard");
   // Recruit form
@@ -344,8 +347,10 @@ const AmbassadorPortal=({ambassador,prompts,resources,events,socials,allRecruits
   const handleFeedback=()=>{if(!fbText.trim())return;onSubmitFeedback({id:uid(),ambassadorId:ambassador.id,ambassadorName:ambassador.name,type:fbType,message:fbText,date:new Date().toISOString()});setFbText("");setFbDone(true);setTimeout(()=>setFbDone(false),4000)};
 
   const[copied,setCopied]=useState(null);
+  const[logTarget,setLogTarget]=useState(null);const[logText,setLogText]=useState("");const[logSaved,setLogSaved]=useState(false);
+  const handleOutreachLog=(targetId)=>{if(!logText.trim())return;onAddOutreachLog(targetId,{date:new Date().toISOString(),text:logText,by:ambassador.name});setLogText("");setLogSaved(targetId);setTimeout(()=>setLogSaved(false),3000)};
   const copyLink=(url)=>{navigator.clipboard.writeText(url).then(()=>{setCopied(url);setTimeout(()=>setCopied(null),2000)}).catch(()=>{})};
-  const tabs=[{key:"dashboard",label:"Dashboard",icon:"📊"},{key:"events",label:`Events${events.length?` (${events.length})`:""}`,icon:"📅"},{key:"recruits",label:"Recruits",icon:"👥"},{key:"activity",label:"Activity",icon:"📝"},{key:"perks",label:"Perks & Info",icon:"⭐"},{key:"socials",label:"Socials",icon:"🔗"},{key:"profile",label:"Profile",icon:"✏️"},{key:"toolkit",label:"Toolkit",icon:"📦"},{key:"feedback",label:"Feedback",icon:"💬"}];
+  const tabs=[{key:"dashboard",label:"Dashboard",icon:"📊"},{key:"outreach",label:`Outreach (${outreach.length})`,icon:"🌐"},{key:"events",label:`Events${events.length?` (${events.length})`:""}`,icon:"📅"},{key:"recruits",label:"Recruits",icon:"👥"},{key:"activity",label:"Activity",icon:"📝"},{key:"perks",label:"Perks & Info",icon:"⭐"},{key:"socials",label:"Socials",icon:"🔗"},{key:"profile",label:"Profile",icon:"✏️"},{key:"toolkit",label:"Toolkit",icon:"📦"},{key:"feedback",label:"Feedback",icon:"💬"}];
 
   return(
     <div style={{minHeight:"100vh",background:`radial-gradient(ellipse at 10% 0%,${T.surfaceLight}30 0%,${T.bg} 50%)`,color:T.text}}>
@@ -474,6 +479,55 @@ const AmbassadorPortal=({ambassador,prompts,resources,events,socials,allRecruits
           </Card>
         </>}
 
+        {/* ─── OUTREACH ─── */}
+        {tab==="outreach"&&<>
+          <SectionTitle>Outreach Board</SectionTitle>
+          <p style={{fontFamily:mono,fontSize:11,color:T.textMuted,marginBottom:16,marginTop:-8}}>External communities we're reaching out to. Add updates to log your progress.</p>
+          {outreach.length===0?<EmptyState icon="🌐" title="No outreach targets yet" sub="The team will add communities here as they're identified."/>:(
+            <div style={{display:"grid",gap:10}}>
+              {outreach.map(o=>{const sc=OUTREACH_STATUS[o.status]||OUTREACH_STATUS.not_started;return (
+                <Card key={o.id}>
+                  <div style={{marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                      <span style={{fontFamily:sans,fontSize:16,fontWeight:700,color:T.text}}>{o.communityName}</span>
+                      <span style={{fontFamily:mono,fontSize:10,padding:"2px 8px",borderRadius:4,background:`${sc.color}20`,color:sc.color,fontWeight:600}}>{sc.label}</span>
+                      <span style={{fontFamily:mono,fontSize:10,color:T.textMuted,background:`${T.teal}10`,padding:"2px 8px",borderRadius:4}}>{o.platform}</span>
+                    </div>
+                    {o.contactInfo&&<div style={{fontFamily:mono,fontSize:11,color:T.textMuted,marginBottom:4}}>Contact: {o.contactInfo}</div>}
+                    {o.restrictions&&<div style={{fontFamily:mono,fontSize:11,color:T.warning,marginBottom:4}}>⚠ {o.restrictions}</div>}
+                    {o.notes&&<div style={{fontFamily:mono,fontSize:11,color:T.textMuted,fontStyle:"italic"}}>{o.notes}</div>}
+                  </div>
+                  {/* Log */}
+                  {o.log&&o.log.length>0&&<div style={{borderTop:`1px solid ${T.surfaceLight}`,paddingTop:8,marginBottom:8}}>
+                    <div style={{fontFamily:mono,fontSize:9,color:T.teal,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Update Log</div>
+                    {[...o.log].reverse().slice(0,5).map((l,i)=>(
+                      <div key={i} style={{fontFamily:mono,fontSize:10,color:T.textMuted,lineHeight:1.6,display:"flex",gap:8}}>
+                        <span style={{flexShrink:0}}>{fmtDateTime(l.date)}</span>
+                        <span>{l.text}{l.by&&<span style={{color:T.teal}}> — {l.by}</span>}</span>
+                      </div>
+                    ))}
+                    {o.log.length>5&&<div style={{fontFamily:mono,fontSize:10,color:T.textMuted,marginTop:2}}>+ {o.log.length-5} more</div>}
+                  </div>}
+                  {/* Add update */}
+                  {logTarget===o.id?(
+                    <div style={{borderTop:`1px solid ${T.surfaceLight}`,paddingTop:10}}>
+                      {logSaved===o.id?<div style={{fontFamily:mono,fontSize:11,color:T.success,textAlign:"center",padding:8}}>✓ Update logged</div>:(
+                        <div style={{display:"flex",gap:8,alignItems:"end"}}>
+                          <div style={{flex:1}}><Inp value={logText} onChange={setLogText} ph="What happened? Any progress?"/></div>
+                          <Btn onClick={()=>handleOutreachLog(o.id)} style={{flexShrink:0,fontSize:11,padding:"9px 14px"}}>Log</Btn>
+                          <Btn v="ghost" onClick={()=>{setLogTarget(null);setLogText("")}} style={{flexShrink:0,fontSize:11,padding:"9px 10px"}}>×</Btn>
+                        </div>
+                      )}
+                    </div>
+                  ):(
+                    <button onClick={()=>setLogTarget(o.id)} style={{fontFamily:mono,fontSize:11,color:T.teal,background:"none",border:"none",cursor:"pointer",padding:0,marginTop:4}}>+ Add update</button>
+                  )}
+                </Card>
+              )})}
+            </div>
+          )}
+        </>}
+
         {/* ─── EVENTS ─── */}
         {tab==="events"&&<>
           <SectionTitle>Upcoming Events</SectionTitle>
@@ -576,17 +630,18 @@ const AdminDashboard=({settings,onUpdateSettings,onLogout})=>{
   const T=useTheme();const[tab,setTab]=useState("ambassadors");
   const[ambassadors,setAmbassadors]=useState([]);const[prompts,setPrompts]=useState([]);const[resources,setResources]=useState([]);
   const[feedback,setFeedback]=useState([]);const[recruits,setRecruits]=useState([]);const[activity,setActivity]=useState([]);const[applications,setApplications]=useState([]);
-  const[events,setEvents]=useState([]);const[socials,setSocials]=useState([]);
+  const[events,setEvents]=useState([]);const[socials,setSocials]=useState([]);const[outreach,setOutreach]=useState([]);
   const[showForm,setShowForm]=useState(false);const[editing,setEditing]=useState(null);
   const[showPromptForm,setShowPromptForm]=useState(false);const[showResourceForm,setShowResourceForm]=useState(false);
   const[showSettings,setShowSettings]=useState(false);const[confirmDelete,setConfirmDelete]=useState(null);
   const[showEventForm,setShowEventForm]=useState(false);const[showSocialForm,setShowSocialForm]=useState(false);
+  const[showOutreachForm,setShowOutreachForm]=useState(false);const[editingOutreach,setEditingOutreach]=useState(null);
   const[filter,setFilter]=useState("all");const[loaded,setLoaded]=useState(false);
 
-  useEffect(()=>{(async()=>{setAmbassadors(await load(KEYS.ambassadors,[]));setPrompts(await load(KEYS.prompts,[]));setResources(await load(KEYS.resources,[]));setFeedback(await load(KEYS.feedback,[]));setRecruits(await load(KEYS.recruits,[]));setActivity(await load(KEYS.activity,[]));setApplications(await load(KEYS.applications,[]));setEvents(await load(KEYS.events,[]));setSocials(await load(KEYS.socials,[]));setLoaded(true)})()},[]);
+  useEffect(()=>{(async()=>{setAmbassadors(await load(KEYS.ambassadors,[]));setPrompts(await load(KEYS.prompts,[]));setResources(await load(KEYS.resources,[]));setFeedback(await load(KEYS.feedback,[]));setRecruits(await load(KEYS.recruits,[]));setActivity(await load(KEYS.activity,[]));setApplications(await load(KEYS.applications,[]));setEvents(await load(KEYS.events,[]));setSocials(await load(KEYS.socials,[]));setOutreach(await load(KEYS.outreach,[]));setLoaded(true)})()},[]);
 
   const up=(k,s)=>d=>{s(d);sv(k,d)};
-  const sA=up(KEYS.ambassadors,setAmbassadors),sP=up(KEYS.prompts,setPrompts),sR=up(KEYS.resources,setResources),sF=up(KEYS.feedback,setFeedback),sAp=up(KEYS.applications,setApplications),sEv=up(KEYS.events,setEvents),sSo=up(KEYS.socials,setSocials);
+  const sA=up(KEYS.ambassadors,setAmbassadors),sP=up(KEYS.prompts,setPrompts),sR=up(KEYS.resources,setResources),sF=up(KEYS.feedback,setFeedback),sAp=up(KEYS.applications,setApplications),sEv=up(KEYS.events,setEvents),sSo=up(KEYS.socials,setSocials),sOr=up(KEYS.outreach,setOutreach);
   const saveAmb=a=>{sA(editing?ambassadors.map(x=>x.id===a.id?a:x):[...ambassadors,a]);setShowForm(false);setEditing(null)};
   const delAmb=id=>{sA(ambassadors.filter(a=>a.id!==id));setConfirmDelete(null)};
   const savePr=p=>{sP([...prompts,p]);setShowPromptForm(false)};const delPr=id=>sP(prompts.filter(p=>p.id!==id));
@@ -596,6 +651,9 @@ const AdminDashboard=({settings,onUpdateSettings,onLogout})=>{
   const delApp=id=>sAp(applications.filter(a=>a.id!==id));
   const saveEvent=e=>{sEv([...events,e]);setShowEventForm(false)};const delEvent=id=>sEv(events.filter(e=>e.id!==id));
   const saveSocial=s=>{sSo([...socials,s]);setShowSocialForm(false)};const delSocial=id=>sSo(socials.filter(s=>s.id!==id));
+  const saveOutreach=o=>{sOr(editingOutreach?outreach.map(x=>x.id===o.id?o:x):[...outreach,o]);setShowOutreachForm(false);setEditingOutreach(null)};
+  const delOutreach=id=>sOr(outreach.filter(o=>o.id!==id));
+  const updateOutreachStatus=(id,status)=>sOr(outreach.map(o=>o.id===id?{...o,status,log:[...(o.log||[]),{date:new Date().toISOString(),text:`Status changed to ${OUTREACH_STATUS[status]?.label}`,by:"Admin"}]}:o));
   const bulkStatus=(f,t)=>{if(f===t)return;sA(ambassadors.map(a=>a.status===f?{...a,status:t}:a))};
 
   const filtered=filter==="all"?ambassadors:ambassadors.filter(a=>a.status===filter);
@@ -603,7 +661,7 @@ const AdminDashboard=({settings,onUpdateSettings,onLogout})=>{
   const urgentRenewals=ambassadors.filter(a=>daysLeft(a)<=7&&["active","trial"].includes(a.status)).length;
 
   const pendingApps=applications.filter(a=>a.status==="pending").length;
-  const tabs=[{key:"ambassadors",label:"Ambassadors",icon:"👥"},{key:"applications",label:`Applications${pendingApps?` (${pendingApps})`:""}`,icon:"📋"},{key:"events",label:`Events (${events.length})`,icon:"📅"},{key:"socials",label:`Socials (${socials.length})`,icon:"🔗"},{key:"prompts",label:"Prompts",icon:"💡"},{key:"toolkit",label:"Toolkit",icon:"📦"},{key:"recruits",label:`Recruits (${recruits.length})`,icon:"🎯"},{key:"activity",label:`Activity (${activity.length})`,icon:"📝"},{key:"feedback",label:`Feedback (${feedback.length})`,icon:"💬"}];
+  const tabs=[{key:"ambassadors",label:"Ambassadors",icon:"👥"},{key:"applications",label:`Applications${pendingApps?` (${pendingApps})`:""}`,icon:"📋"},{key:"outreach",label:`Outreach (${outreach.length})`,icon:"🌐"},{key:"events",label:`Events (${events.length})`,icon:"📅"},{key:"socials",label:`Socials (${socials.length})`,icon:"🔗"},{key:"prompts",label:"Prompts",icon:"💡"},{key:"toolkit",label:"Toolkit",icon:"📦"},{key:"recruits",label:`Recruits (${recruits.length})`,icon:"🎯"},{key:"activity",label:`Activity (${activity.length})`,icon:"📝"},{key:"feedback",label:`Feedback (${feedback.length})`,icon:"💬"}];
 
   if(!loaded)return <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",color:T.textMuted,fontFamily:mono}}>Loading...</div>;
 
@@ -637,7 +695,7 @@ const AdminDashboard=({settings,onUpdateSettings,onLogout})=>{
               <Card key={a.id}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",gap:12,flexWrap:"wrap"}}>
                   <div style={{flex:1,minWidth:200}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:8}}><span style={{fontFamily:sans,fontSize:17,fontWeight:700,color:T.text}}>{a.name||"Unnamed"}</span><Badge status={a.status}/></div>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:8}}><span style={{fontFamily:sans,fontSize:17,fontWeight:700,color:T.text}}>{a.name||"Unnamed"}</span><Badge status={a.status}/>{a.focus&&a.focus!=="both"&&<span style={{fontFamily:mono,fontSize:10,padding:"2px 8px",borderRadius:4,background:`${T.teal}10`,color:T.teal,border:`1px solid ${T.teal}20`}}>{a.focus==="internal"?"Internal":"External"}</span>}</div>
                     {a.bio&&<div style={{fontFamily:mono,fontSize:11,color:T.textMuted,marginBottom:8,lineHeight:1.5}}>{a.bio}</div>}
                     <div style={{display:"flex",gap:14,flexWrap:"wrap",fontFamily:mono,fontSize:11,color:T.textMuted}}>
                       {a.email&&<span>✉ {a.email}</span>}{a.discord&&<span>💬 {a.discord}</span>}{a.twitter&&<span>𝕏 {a.twitter}</span>}{a.linkedin&&<span>in {a.linkedin}</span>}{a.youtube&&<span>▶ {a.youtube}</span>}{a.tiktok&&<span>♪ {a.tiktok}</span>}{a.reddit&&<span>⬡ {a.reddit}</span>}{a.instagram&&<span>📷 {a.instagram}</span>}{a.podcast&&<span>🎙 {a.podcast}</span>}{a.facebook&&<span>f {a.facebook}</span>}{a.website&&<span>🔗 {a.website}</span>}
@@ -805,6 +863,61 @@ const AdminDashboard=({settings,onUpdateSettings,onLogout})=>{
           )}
         </>}
 
+        {/* OUTREACH */}
+        {tab==="outreach"&&<>
+          <SectionTitle right={<Btn onClick={()=>{setEditingOutreach(null);setShowOutreachForm(true)}} style={{fontSize:12}}>+ Add Target</Btn>}>Outreach Board</SectionTitle>
+          <p style={{fontFamily:mono,fontSize:11,color:T.textMuted,marginBottom:16,marginTop:-8}}>Track external community outreach. Ambassadors can see and update these.</p>
+          {(()=>{const orFilter=filter==="all"?outreach:outreach.filter(o=>o.status===filter);return <>
+            <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+              {["all",...Object.keys(OUTREACH_STATUS)].map(s=>{
+                const count=s==="all"?outreach.length:outreach.filter(o=>o.status===s).length;
+                return <button key={s} onClick={()=>setFilter(s)} style={{padding:"4px 12px",borderRadius:6,border:"none",cursor:"pointer",fontFamily:mono,fontSize:11,background:filter===s?`${T.teal}20`:"transparent",color:filter===s?T.teal:T.textMuted,transition:"all 0.2s"}}>{s==="all"?"All":OUTREACH_STATUS[s]?.label} ({count})</button>
+              })}
+            </div>
+            {orFilter.length===0?<EmptyState icon="🌐" title={outreach.length===0?"No outreach targets":"No matches"} sub="Add communities to track outreach progress." action={outreach.length===0&&<Btn onClick={()=>{setEditingOutreach(null);setShowOutreachForm(true)}}>+ Add First Target</Btn>}/>:(
+              <div style={{display:"grid",gap:10}}>
+                {orFilter.map(o=>{const sc=OUTREACH_STATUS[o.status]||OUTREACH_STATUS.not_started;return (
+                  <Card key={o.id}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",gap:12,flexWrap:"wrap"}}>
+                      <div style={{flex:1,minWidth:200}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                          <span style={{fontFamily:sans,fontSize:16,fontWeight:700,color:T.text}}>{o.communityName}</span>
+                          <span style={{fontFamily:mono,fontSize:10,padding:"2px 8px",borderRadius:4,background:`${sc.color}20`,color:sc.color,fontWeight:600}}>{sc.label}</span>
+                          <span style={{fontFamily:mono,fontSize:10,color:T.textMuted,background:`${T.teal}10`,padding:"2px 8px",borderRadius:4}}>{o.platform}</span>
+                        </div>
+                        {o.contactInfo&&<div style={{fontFamily:mono,fontSize:11,color:T.textMuted,marginBottom:4}}>Contact: {o.contactInfo}</div>}
+                        {o.restrictions&&<div style={{fontFamily:mono,fontSize:11,color:T.warning,marginBottom:4}}>⚠ {o.restrictions}</div>}
+                        {o.notes&&<div style={{fontFamily:mono,fontSize:11,color:T.textMuted,marginBottom:6,fontStyle:"italic"}}>{o.notes}</div>}
+                        {/* Status buttons */}
+                        <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap"}}>
+                          {Object.entries(OUTREACH_STATUS).map(([k,v])=>(
+                            <button key={k} onClick={()=>updateOutreachStatus(o.id,k)} style={{padding:"3px 10px",borderRadius:5,border:`1px solid ${o.status===k?v.color:`${T.surfaceLight}`}`,cursor:"pointer",fontFamily:mono,fontSize:10,background:o.status===k?`${v.color}20`:"transparent",color:o.status===k?v.color:T.textMuted,transition:"all 0.2s"}}>{v.label}</button>
+                          ))}
+                        </div>
+                        {/* Update log */}
+                        {o.log&&o.log.length>0&&<div style={{borderTop:`1px solid ${T.surfaceLight}`,paddingTop:8,marginTop:4}}>
+                          <div style={{fontFamily:mono,fontSize:9,color:T.teal,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Update Log</div>
+                          {[...o.log].reverse().slice(0,5).map((l,i)=>(
+                            <div key={i} style={{fontFamily:mono,fontSize:10,color:T.textMuted,lineHeight:1.6,display:"flex",gap:8}}>
+                              <span style={{flexShrink:0,color:T.textMuted}}>{fmtDateTime(l.date)}</span>
+                              <span>{l.text}{l.by&&<span style={{color:T.teal}}> — {l.by}</span>}</span>
+                            </div>
+                          ))}
+                          {o.log.length>5&&<div style={{fontFamily:mono,fontSize:10,color:T.textMuted,marginTop:4}}>+ {o.log.length-5} more</div>}
+                        </div>}
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                        <Btn v="secondary" onClick={()=>{setEditingOutreach(o);setShowOutreachForm(true)}} style={{padding:"5px 10px",fontSize:11}}>Edit</Btn>
+                        <Btn v="danger" onClick={()=>delOutreach(o.id)} style={{padding:"5px 10px",fontSize:11}}>×</Btn>
+                      </div>
+                    </div>
+                  </Card>
+                )})}
+              </div>
+            )}
+          </>})()}
+        </>}
+
         <div style={{textAlign:"center",marginTop:40,paddingTop:16,borderTop:`1px solid ${T.surfaceLight}`,fontFamily:mono,fontSize:9,color:T.textMuted}}>Nanu Ambassador Hub · Unknown Systems Ltd · {new Date().getFullYear()}</div>
       </div>
 
@@ -813,6 +926,7 @@ const AdminDashboard=({settings,onUpdateSettings,onLogout})=>{
       {showResourceForm&&<ResFormModal onSave={saveRe} onClose={()=>setShowResourceForm(false)}/>}
       {showEventForm&&<EventFormModal onSave={saveEvent} onClose={()=>setShowEventForm(false)}/>}
       {showSocialForm&&<SocialFormModal onSave={saveSocial} onClose={()=>setShowSocialForm(false)}/>}
+      {showOutreachForm&&<OutreachFormModal outreach={editingOutreach} onSave={saveOutreach} onClose={()=>{setShowOutreachForm(false);setEditingOutreach(null)}}/>}
       {showSettings&&<SettingsPanel settings={settings} onUpdate={onUpdateSettings} ambassadors={ambassadors} feedback={feedback} onBulkStatus={bulkStatus} onClose={()=>setShowSettings(false)}/>}
     </div>
   );
@@ -821,7 +935,7 @@ const AdminDashboard=({settings,onUpdateSettings,onLogout})=>{
 // ─── Form Modals ───
 const AmbFormModal=({amb,onSave,onClose})=>{
   const T=useTheme();
-  const[f,setF]=useState(amb||{id:uid(),name:"",email:"",discord:"",twitter:"",linkedin:"",youtube:"",tiktok:"",reddit:"",podcast:"",instagram:"",facebook:"",website:"",bio:"",status:"trial",startDate:new Date().toISOString().split("T")[0],inviteCode:"",usersRecruited:0,notes:""});
+  const[f,setF]=useState(amb||{id:uid(),name:"",email:"",discord:"",twitter:"",linkedin:"",youtube:"",tiktok:"",reddit:"",podcast:"",instagram:"",facebook:"",website:"",bio:"",status:"trial",focus:"both",startDate:new Date().toISOString().split("T")[0],inviteCode:"",usersRecruited:0,notes:""});
   const u=k=>v=>setF(p=>({...p,[k]:v}));
   const[codeManual,setCodeManual]=useState(!!amb?.inviteCode);
   useEffect(()=>{if(!codeManual&&f.name.length>=3)setF(p=>({...p,inviteCode:genCode(f.name)}))},[f.name]);
@@ -837,7 +951,7 @@ const AmbFormModal=({amb,onSave,onClose})=>{
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Inp label="Reddit" value={f.reddit} onChange={u("reddit")} ph="u/username"/><Inp label="Instagram" value={f.instagram} onChange={u("instagram")} ph="@handle"/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Inp label="Podcast" value={f.podcast} onChange={u("podcast")} ph="name or URL"/><Inp label="Facebook" value={f.facebook} onChange={u("facebook")} ph="page"/></div>
         <Inp label="Website" value={f.website||""} onChange={u("website")} ph="https://..."/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Sel label="Status" value={f.status} onChange={u("status")} options={Object.entries(STATUS).map(([k,v])=>({value:k,label:v.label}))}/><Inp label="Start Date" value={f.startDate} onChange={u("startDate")} type="date"/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}><Sel label="Status" value={f.status} onChange={u("status")} options={Object.entries(STATUS).map(([k,v])=>({value:k,label:v.label}))}/><Sel label="Focus" value={f.focus||"both"} onChange={u("focus")} options={FOCUS_OPTS}/><Inp label="Start Date" value={f.startDate} onChange={u("startDate")} type="date"/></div>
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr auto",gap:10,alignItems:"end"}}><Inp label="Invite Code (login)" value={f.inviteCode} onChange={v=>{setCodeManual(true);u("inviteCode")(v)}} ph="Auto-generated"/><Inp label="Recruited" value={f.usersRecruited} onChange={v=>u("usersRecruited")(parseInt(v)||0)} type="number"/><button onClick={()=>{setCodeManual(false);setF(p=>({...p,inviteCode:genCode(p.name||"AMB")}))}} style={{background:"none",border:`1px solid ${T.surfaceLight}`,borderRadius:8,cursor:"pointer",padding:"9px 10px",color:T.textMuted,fontFamily:mono,fontSize:10,whiteSpace:"nowrap"}} onMouseEnter={e=>(e.target.style.borderColor=T.teal)} onMouseLeave={e=>(e.target.style.borderColor=T.surfaceLight)}>↻ New</button></div>
         <Inp label="Admin Notes" value={f.notes} onChange={u("notes")} ph="Internal notes..."/>
       </div>
@@ -893,6 +1007,28 @@ const SocialFormModal=({onSave,onClose})=>{
   );
 };
 
+const OutreachFormModal=({outreach:o,onSave,onClose})=>{
+  const T=useTheme();
+  const[f,setF]=useState(o||{id:uid(),platform:"Discord",communityName:"",contactInfo:"",status:"not_started",restrictions:"",notes:"",log:[]});
+  return (
+    <Modal onClose={onClose}>
+      <h2 style={{fontFamily:sans,fontSize:20,fontWeight:700,color:T.text,marginBottom:20}}>{o?"Edit Target":"Add Outreach Target"}</h2>
+      <div style={{display:"grid",gap:14}}>
+        <Sel label="Platform" value={f.platform} onChange={v=>setF({...f,platform:v})} options={PLATFORMS.map(p=>({value:p,label:p}))}/>
+        <Inp label="Community Name" value={f.communityName} onChange={v=>setF({...f,communityName:v})} ph="e.g. Strangeora, r/UFOs, UAP Society"/>
+        <Inp label="Contact Info" value={f.contactInfo} onChange={v=>setF({...f,contactInfo:v})} ph="Admin name, email, DM handle..."/>
+        <Sel label="Status" value={f.status} onChange={v=>setF({...f,status:v})} options={Object.entries(OUTREACH_STATUS).map(([k,v])=>({value:k,label:v.label}))}/>
+        <Inp label="Restrictions / Permissions" value={f.restrictions} onChange={v=>setF({...f,restrictions:v})} ph="Any rules about what we can/can't do there..."/>
+        <Inp label="Notes" value={f.notes} onChange={v=>setF({...f,notes:v})} rows={2} ph="Any extra context..."/>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:24,justifyContent:"flex-end"}}>
+        <Btn v="ghost" onClick={onClose}>Cancel</Btn>
+        <Btn onClick={()=>{if(f.communityName)onSave(f)}}>{o?"Save":"Add Target"}</Btn>
+      </div>
+    </Modal>
+  );
+};
+
 // ────────────────────────────────────────────────────────
 // APP ROOT
 // ────────────────────────────────────────────────────────
@@ -901,13 +1037,14 @@ export default function NanuAmbassadorHub(){
   const[ambassadors,setAmbassadors]=useState([]);const[prompts,setPrompts]=useState([]);const[resources,setResources]=useState([]);
   const[feedback,setFeedback]=useState([]);const[recruits,setRecruits]=useState([]);const[activity,setActivity]=useState([]);
   const[applications,setApplications]=useState([]);
-  const[events,setEvents]=useState([]);const[socials,setSocials]=useState([]);
+  const[events,setEvents]=useState([]);const[socials,setSocials]=useState([]);const[outreach,setOutreach]=useState([]);
   const[settings,setSettings]=useState(DEFAULT_SETTINGS);const[ready,setReady]=useState(false);
 
   const reload=async()=>{
     setAmbassadors(await load(KEYS.ambassadors,[]));setPrompts(await load(KEYS.prompts,[]));setResources(await load(KEYS.resources,[]));
     setFeedback(await load(KEYS.feedback,[]));setRecruits(await load(KEYS.recruits,[]));setActivity(await load(KEYS.activity,[]));
     setApplications(await load(KEYS.applications,[]));setEvents(await load(KEYS.events,[]));setSocials(await load(KEYS.socials,[]));
+    setOutreach(await load(KEYS.outreach,[]));
     const ls=await load(KEYS.settings,DEFAULT_SETTINGS);setSettings({...DEFAULT_SETTINGS,...ls});
   };
 
@@ -924,6 +1061,7 @@ export default function NanuAmbassadorHub(){
   const handleAddActivity=async(a)=>{const u=[...activity,a];setActivity(u);await sv(KEYS.activity,u)};
   const handleSubmitFeedback=async(fb)=>{const u=[...feedback,fb];setFeedback(u);await sv(KEYS.feedback,u)};
   const handleSubmitApplication=async(app)=>{const u=[...applications,app];setApplications(u);await sv(KEYS.applications,u)};
+  const handleAddOutreachLog=async(targetId,entry)=>{const updated=outreach.map(o=>o.id===targetId?{...o,log:[...(o.log||[]),entry]}:o);setOutreach(updated);await sv(KEYS.outreach,updated)};
 
   const theme=settings.theme==="light"?LIGHT:DARK;
   if(!ready) return <div style={{minHeight:"100vh",background:DARK.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:mono,color:DARK.textMuted}}>Loading...</div>;
@@ -933,7 +1071,7 @@ export default function NanuAmbassadorHub(){
       <div>
         {!role&&<LoginScreen onLogin={handleLogin} onApply={()=>setRole("apply")} ambassadors={ambassadors} settings={settings} onResetPin={handleResetPin}/>}
         {role==="apply"&&<ApplicationPage onSubmit={handleSubmitApplication} onBack={()=>setRole(null)}/>}
-        {role==="ambassador"&&ambId&&ambassadors.find(a=>a.id===ambId)&&<AmbassadorPortal ambassador={ambassadors.find(a=>a.id===ambId)} prompts={prompts} resources={resources} events={events} socials={socials} allRecruits={recruits} allActivity={activity} allFeedback={feedback} onUpdateProfile={handleUpdateProfile} onAddRecruit={handleAddRecruit} onAddActivity={handleAddActivity} onSubmitFeedback={handleSubmitFeedback} onLogout={handleLogout}/>}
+        {role==="ambassador"&&ambId&&ambassadors.find(a=>a.id===ambId)&&<AmbassadorPortal ambassador={ambassadors.find(a=>a.id===ambId)} prompts={prompts} resources={resources} events={events} socials={socials} outreach={outreach} allRecruits={recruits} allActivity={activity} allFeedback={feedback} onUpdateProfile={handleUpdateProfile} onAddRecruit={handleAddRecruit} onAddActivity={handleAddActivity} onSubmitFeedback={handleSubmitFeedback} onAddOutreachLog={handleAddOutreachLog} onLogout={handleLogout}/>}
         {role==="admin"&&<AdminDashboard settings={settings} onUpdateSettings={handleUpdateSettings} onLogout={handleLogout}/>}
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
